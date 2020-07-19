@@ -8,10 +8,20 @@ defmodule Hello2Web.Router do
     plug :protect_from_forgery
     plug :put_secure_browser_headers
     plug Hello2Web.Plugs.Locale, "en"
+    # plug :put_user_token
   end
 
   pipeline :api do
     plug :accepts, ["json"]
+  end
+
+  defp put_user_token(conn, _) do
+    if current_user = conn.assigns[:current_user] do
+      token = Phoenix.Token.sign(conn, "user socket", current_user.id)
+      assign(conn, :user_token, token)
+    else
+      conn
+    end
   end
 
   defp authenticate_user(conn, _) do
@@ -21,6 +31,7 @@ defmodule Hello2Web.Router do
         |> Phoenix.Controller.put_flash(:error, "Login required")
         |> Phoenix.Controller.redirect(to: "/")
         |> halt()
+
       user_id ->
         assign(conn, :current_user, Hello2.Accounts.get_user!(user_id))
     end
@@ -66,7 +77,7 @@ defmodule Hello2Web.Router do
   end
 
   scope "/cms", Hello2Web.CMS, as: :cms do
-    pipe_through [:browser, :authenticate_user]
+    pipe_through [:browser, :authenticate_user, :put_user_token]
 
     resources "/pages", PageController
   end
