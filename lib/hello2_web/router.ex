@@ -14,6 +14,18 @@ defmodule Hello2Web.Router do
     plug :accepts, ["json"]
   end
 
+  defp authenticate_user(conn, _) do
+    case get_session(conn, :user_id) do
+      nil ->
+        conn
+        |> Phoenix.Controller.put_flash(:error, "Login required")
+        |> Phoenix.Controller.redirect(to: "/")
+        |> halt()
+      user_id ->
+        assign(conn, :current_user, Hello2.Accounts.get_user!(user_id))
+    end
+  end
+
   scope "/", Hello2Web do
     pipe_through :browser
 
@@ -22,7 +34,8 @@ defmodule Hello2Web.Router do
     get "/hello", HelloController, :index
     get "/hello/:messenger", HelloController, :show
 
-    # resources "/users", UserController
+    resources "/users", UserController
+    resources "/sessions", SessionController, only: [:new, :create, :delete], singleton: true
     # resources "/posts", PostController, only: [:index, :show]
     # resources "/users", UserController do
     #   resources "/posts", PostController
@@ -33,7 +46,7 @@ defmodule Hello2Web.Router do
     # resources "/reviews", ReviewController
   end
 
-  scope "/admin", HelloWeb.Admin, as: :admin do
+  scope "/admin", Hello2Web.Admin, as: :admin do
     pipe_through :browser
 
     # resources "/images", ImageController
@@ -42,7 +55,7 @@ defmodule Hello2Web.Router do
   end
 
   # Other scopes may use custom stacks.
-  scope "/api", HelloWeb.Api, as: :api do
+  scope "/api", Hello2Web.Api, as: :api do
     pipe_through :api
 
     scope "/v1", V1, as: :v1 do
@@ -50,6 +63,12 @@ defmodule Hello2Web.Router do
       # resources "/reviews", ReviewController
       # resources "/users",   UserController
     end
+  end
+
+  scope "/cms", Hello2Web.CMS, as: :cms do
+    pipe_through [:browser, :authenticate_user]
+
+    resources "/pages", PageController
   end
 
   # Enables LiveDashboard only for development
